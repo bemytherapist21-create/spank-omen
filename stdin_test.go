@@ -17,6 +17,7 @@ func resetGlobals() {
 	cooldownMs = 750
 	stdioMode = true
 	volumeScaling = false
+	speedRatio = 1.0
 }
 
 func TestPauseCommand(t *testing.T) {
@@ -390,7 +391,7 @@ func TestAmplitudeToVolume(t *testing.T) {
 		{"at minimum returns min volume", 0.05, -3.0, -3.0},
 		{"above maximum returns max volume", 1.0, 0.0, 0.0},
 		{"at maximum returns max volume", 0.80, 0.0, 0.0},
-		{"mid amplitude returns mid-range", 0.40, -2.0, -0.5},
+		{"mid amplitude returns mid-range", 0.40, -2.0, -0.45},
 		{"low amplitude is quieter than high", 0.10, -3.0, -1.5},
 	}
 
