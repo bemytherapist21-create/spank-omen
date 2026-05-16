@@ -56,8 +56,6 @@ Future Windows detector:
 go build -o spank-omen .
 ```
 
-If your GitHub username or repository name differs, update the `module` line in `go.mod` before publishing Go install instructions.
-
 ## Usage
 
 Current macOS accelerometer runtime:

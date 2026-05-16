@@ -1,4 +1,4 @@
-module github.com/BHUPESH/spank-omen
+module github.com/bemytherapist21-create/spank-omen
 
 go 1.26
 

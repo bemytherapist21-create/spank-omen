@@ -1,4 +1,4 @@
-﻿// spank-omen detects laptop impact events and plays audio responses.
+// spank-omen detects laptop impact events and plays audio responses.
 // The current Go runtime still reads the Apple Silicon accelerometer directly
 // via IOKit HID; the Windows microphone detector is planned as the next input
 // backend.
@@ -48,19 +48,19 @@ var haloAudio embed.FS
 var lizardAudio embed.FS
 
 var (
-	sexyMode     bool
-	haloMode     bool
-	lizardMode   bool
-	customPath   string
-	customFiles  []string
-	fastMode     bool
-	minAmplitude float64
-	cooldownMs   int
-	stdioMode      bool
-	volumeScaling  bool
-	paused         bool
-	pausedMu       sync.RWMutex
-	speedRatio     float64
+	sexyMode      bool
+	haloMode      bool
+	lizardMode    bool
+	customPath    string
+	customFiles   []string
+	fastMode      bool
+	minAmplitude  float64
+	cooldownMs    int
+	stdioMode     bool
+	volumeScaling bool
+	paused        bool
+	pausedMu      sync.RWMutex
+	speedRatio    float64
 )
 
 // sensorReady is closed once shared memory is created and the sensor
@@ -218,7 +218,7 @@ func (st *slapTracker) getFile(score float64) string {
 	// At sustained max slap rate, score reaches ssMax which maps
 	// to the final file.
 	maxIdx := len(st.pack.files) - 1
-	idx := min(int(float64(len(st.pack.files)) * (1.0 - math.Exp(-(score-1)/st.scale))), maxIdx)
+	idx := min(int(float64(len(st.pack.files))*(1.0-math.Exp(-(score-1)/st.scale))), maxIdx)
 	return st.pack.files[idx]
 }
 
@@ -484,10 +484,10 @@ var speakerMu sync.Mutex
 // (base 2): -3.0 is ~1/8 volume, 0.0 is full volume.
 func amplitudeToVolume(amplitude float64) float64 {
 	const (
-		minAmp   = 0.05  // softest detectable
-		maxAmp   = 0.80  // treat anything above this as max
-		minVol   = -3.0  // quietest playback (1/8 volume with base 2)
-		maxVol   = 0.0   // full volume
+		minAmp = 0.05 // softest detectable
+		maxAmp = 0.80 // treat anything above this as max
+		minVol = -3.0 // quietest playback (1/8 volume with base 2)
+		maxVol = 0.0  // full volume
 	)
 
 	// Clamp
