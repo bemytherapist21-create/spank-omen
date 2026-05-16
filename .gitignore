@@ -1,0 +1,8 @@
+/spank
+/spank-omen
+dist/
+*.log
+.crush
+spank.test
+result
+.vscode/
