@@ -25,3 +25,21 @@ jobs:
 
       - name: Run tests
         run: go test ./...
+
+  windows-python:
+    name: Python mic backend on Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests
+
+      - name: Run simulated detector
+        run: python main.py --simulate --duration 1.5 --no-playback --stdio

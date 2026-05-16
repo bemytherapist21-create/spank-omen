@@ -1,0 +1,11 @@
+{
+  "sample_rate": 48000,
+  "block_ms": 20,
+  "min_amplitude": 0.32,
+  "min_rms": 0.025,
+  "noise_ratio": 5.0,
+  "min_crest_factor": 3.5,
+  "max_zero_crossing_rate": 0.55,
+  "cooldown_ms": 650,
+  "mode": "pain"
+}

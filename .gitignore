@@ -1,6 +1,10 @@
 /spank
 /spank-omen
 dist/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
 *.log
 .crush
 spank.test

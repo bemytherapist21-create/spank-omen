@@ -1,0 +1,51 @@
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from detector.mic_input import simulated_frames
+from detector.slap_detector import SlapDetector
+from modes import create_mode
+from utils.cooldown import Cooldown
+from utils.player import _volume_from_amplitude
+
+
+class WindowsBackendTests(unittest.TestCase):
+    def test_simulated_frames_trigger_detector(self) -> None:
+        detector = SlapDetector(min_amplitude=0.25, min_rms=0.015)
+        events = [
+            event
+            for frame in simulated_frames(duration=2.0)
+            if (event := detector.process(frame)) is not None
+        ]
+
+        self.assertGreaterEqual(len(events), 2)
+        self.assertTrue(all(event.confidence > 0 for event in events))
+
+    def test_cooldown_blocks_repeated_events(self) -> None:
+        cooldown = Cooldown(500)
+
+        self.assertTrue(cooldown.ready(10.0))
+        cooldown.mark(10.0)
+        self.assertFalse(cooldown.ready(10.2))
+        self.assertTrue(cooldown.ready(10.5))
+
+    def test_random_mode_loads_mp3s(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "pain").mkdir()
+            audio_file = root / "pain" / "00.mp3"
+            audio_file.write_bytes(b"fake")
+
+            mode = create_mode("pain", root)
+            self.assertEqual(mode.choose(0.5, 1.0), audio_file)
+
+    def test_volume_scaling_is_bounded(self) -> None:
+        self.assertGreaterEqual(_volume_from_amplitude(0.0), 0.0)
+        self.assertLessEqual(_volume_from_amplitude(10.0), 1.0)
+        self.assertLess(_volume_from_amplitude(0.1), _volume_from_amplitude(0.8))
+
+
+if __name__ == "__main__":
+    unittest.main()

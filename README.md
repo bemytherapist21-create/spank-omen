@@ -6,15 +6,18 @@
 
 An experimental fork of [`taigrr/spank`](https://github.com/taigrr/spank) that is being evolved from a MacBook accelerometer joke app into a configurable real-time event/audio engine.
 
-Current state: the Go runtime is still based on Apple Silicon accelerometer events, with extra tuning, modes, custom audio, JSON stdin control, volume scaling, and playback speed control.
+Current state: the repo has two runtimes:
 
-Planned Windows direction: replace the accelerometer input with microphone-based impact detection, then add optional AI sound classification, OBS/RGB hooks, and local automation actions.
+- A Go/macOS runtime based on Apple Silicon accelerometer events.
+- A Python/Windows runtime based on microphone impact detection.
+
+The Windows backend now covers mic input, audio processing, slap classification, cooldown, mode handling, MP3 playback, JSON control, and a placeholder hook for future PyTorch classification.
 
 ## Status
 
-- **Works today:** macOS on supported Apple Silicon hardware.
-- **In progress:** Windows microphone input and slap classification.
-- **Not yet native Windows:** the current detector still imports `github.com/taigrr/apple-silicon-accelerometer`.
+- **Windows:** use `main.py` for microphone-based slap detection.
+- **macOS Apple Silicon:** use the existing Go binary for accelerometer-based detection.
+- **AI classification:** scaffolded, but not trained/enabled by default.
 
 ## Roadmap
 
@@ -30,11 +33,11 @@ Mic Input
 
 Near-term milestones:
 
-1. Keep the existing Go app stable while the audio packs and control protocol evolve.
-2. Replace `listenForSlaps()` with microphone impact detection for Windows.
-3. Add a Python prototype for real-time audio capture with `sounddevice`.
-4. Add PyTorch classification once the simple detector has enough sample data.
-5. Add optional integrations for OBS, RGB lighting, Discord, and local reactions.
+1. Tune the Windows mic detector against real room noise and laptop audio levels.
+2. Collect slap / non-slap samples for AI classification.
+3. Add a PyTorch classifier behind `--ai-classifier`.
+4. Add optional integrations for OBS, RGB lighting, Discord, and local reactions.
+5. Build a GUI/dashboard once the detector behavior feels good.
 
 ## Requirements
 
@@ -44,13 +47,60 @@ Current Go version:
 - `sudo` for IOKit HID accelerometer access.
 - Go 1.26+ if building from source.
 
-Future Windows detector:
+Windows microphone runtime:
 
 - Windows 10/11.
-- Python runtime for the planned microphone/AI pipeline.
+- Python 3.12+.
+- `sounddevice`, `pygame`, and `numpy` from `requirements.txt`.
 - Optional CUDA-capable NVIDIA GPU for local classification acceleration.
 
-## Build
+## Windows Quick Start
+
+Install Python dependencies:
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+List microphones:
+
+```powershell
+python main.py --list-devices
+```
+
+Run the mic detector:
+
+```powershell
+python main.py --mode pain
+```
+
+Useful Windows examples:
+
+```powershell
+# Test without mic or playback
+python main.py --simulate --duration 3 --no-playback
+
+# JSON events for GUI/automation wrappers
+python main.py --stdio
+
+# Faster response profile
+python main.py --fast
+
+# Different packs
+python main.py --mode sexy
+python main.py --mode halo
+python main.py --mode lizard
+
+# Custom MP3 directory
+python main.py --custom C:\path\to\mp3s
+
+# Tune for your microphone
+python main.py --min-amplitude 0.25 --min-rms 0.02 --cooldown 500
+```
+
+If the detector is too sensitive, raise `--min-amplitude` or `--min-rms`. If it misses real hits, lower them gradually.
+
+## macOS Go Build
 
 ```bash
 go build -o spank-omen .
@@ -137,11 +187,14 @@ Example event:
 
 ## Detection Tuning
 
-Use `--min-amplitude` to control the impact threshold:
+For the Windows mic backend, use `--min-amplitude`, `--min-rms`, `--noise-ratio`, `--min-crest-factor`, and `--cooldown`.
+
+For the Go/macOS accelerometer backend, use `--min-amplitude` to control the impact threshold:
 
 - Lower values detect lighter taps.
 - Higher values require stronger hits.
-- The default is `0.05`.
+- The Go default is `0.05`.
+- The Python mic default is `0.32`.
 
 Use `--fast` for lower-latency detection:
 
@@ -153,6 +206,17 @@ Individual values can still be overridden with `--min-amplitude` and `--cooldown
 
 ## How It Works Today
 
+Windows Python runtime:
+
+1. Reads mono microphone blocks with `sounddevice`.
+2. Removes DC offset and computes peak, RMS, crest factor, zero-crossing rate, and adaptive noise floor.
+3. Classifies short transient impacts as slap events.
+4. Applies cooldown and selected mode behavior.
+5. Plays MP3 responses with `pygame`.
+6. Optionally emits JSON events and accepts stdin commands.
+
+macOS Go runtime:
+
 1. Reads Apple Silicon accelerometer data via IOKit HID.
 2. Processes samples with vibration detection logic.
 3. Applies threshold and cooldown checks.
@@ -160,7 +224,7 @@ Individual values can still be overridden with `--min-amplitude` and `--cooldown
 5. Plays embedded or custom MP3 audio.
 6. Optionally emits JSON events for wrappers, dashboards, or GUI control.
 
-## Planned Windows Architecture
+## Windows Architecture
 
 Suggested Python prototype structure:
 
@@ -183,7 +247,9 @@ spank-omen/
 |   `-- settings.json
 `-- utils/
     |-- cooldown.py
-    `-- logger.py
+    |-- logger.py
+    |-- player.py
+    `-- runtime_control.py
 ```
 
 Recommended stack:
@@ -195,7 +261,7 @@ Recommended stack:
 | AI sound classification | PyTorch |
 | Audio playback | `pygame` |
 | CLI flags | `argparse` |
-| Config | YAML or JSON |
+| Config | JSON |
 | Optional GUI | PyQt6 |
 | GPU acceleration | CUDA |
 
