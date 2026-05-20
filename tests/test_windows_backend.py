@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from detector.calibration import calibrate
-from detector.mic_input import simulated_frames
+from detector.mic_input import _downmix_mono, simulated_frames
 from detector.slap_detector import SlapDetector
 from main import selected_device
 from modes import create_mode
@@ -60,6 +60,9 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertEqual(selected_device("9"), 9)
         self.assertEqual(selected_device("Microphone Array"), "Microphone Array")
         self.assertIsNone(selected_device(None))
+
+    def test_downmix_mono_averages_multichannel_rows(self) -> None:
+        self.assertEqual(_downmix_mono([[1.0, -1.0], [0.25, 0.75]]), [0.0, 0.5])
 
 
 if __name__ == "__main__":

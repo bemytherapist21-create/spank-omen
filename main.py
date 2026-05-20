@@ -39,6 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--custom", help="Directory of custom MP3 files")
     parser.add_argument("--custom-files", help="Comma-separated MP3 file list")
     parser.add_argument("--device", help="Input device index or name")
+    parser.add_argument("--channels", type=int, help="Input channel count; defaults to auto fallback")
     parser.add_argument("--list-devices", action="store_true", help="List microphone input devices")
     parser.add_argument("--sample-rate", type=int, default=settings["sample_rate"])
     parser.add_argument("--block-ms", type=int, default=settings["block_ms"])
@@ -188,7 +189,12 @@ def selected_device(value: str | None) -> int | str | None:
 def frame_source(args: argparse.Namespace, duration: float) -> Iterable[AudioFrame]:
     if args.simulate:
         return simulated_frames(args.sample_rate, args.block_ms, duration=duration)
-    return MicInput(args.sample_rate, args.block_ms, selected_device(args.device)).frames()
+    return MicInput(
+        args.sample_rate,
+        args.block_ms,
+        selected_device(args.device),
+        channels=args.channels,
+    ).frames()
 
 
 def calibration_frame_source(args: argparse.Namespace, duration: float) -> Iterable[AudioFrame]:
@@ -197,7 +203,12 @@ def calibration_frame_source(args: argparse.Namespace, duration: float) -> Itera
 
     def limited() -> Iterable[AudioFrame]:
         deadline = time.monotonic() + duration
-        for frame in MicInput(args.sample_rate, args.block_ms, selected_device(args.device)).frames():
+        for frame in MicInput(
+            args.sample_rate,
+            args.block_ms,
+            selected_device(args.device),
+            channels=args.channels,
+        ).frames():
             if time.monotonic() >= deadline:
                 break
             yield frame

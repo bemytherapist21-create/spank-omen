@@ -15,6 +15,7 @@ class AudioFrame:
     sample_rate: int
     timestamp: float
     overflowed: bool = False
+    channels: int = 1
 
 
 class MissingAudioDependency(RuntimeError):
@@ -54,31 +55,96 @@ class MicInput:
         sample_rate: int = 48_000,
         block_ms: int = 20,
         device: int | str | None = None,
+        channels: int | None = None,
     ) -> None:
         if block_ms <= 0:
             raise ValueError("block_ms must be greater than 0")
+        if channels is not None and channels <= 0:
+            raise ValueError("channels must be greater than 0")
         self.sample_rate = sample_rate
-        self.block_size = max(1, int(sample_rate * block_ms / 1000))
+        self.block_ms = block_ms
         self.device = device
+        self.channels = channels
 
     def frames(self) -> Iterator[AudioFrame]:
         sd = _require_sounddevice()
-        with sd.InputStream(
-            samplerate=self.sample_rate,
-            blocksize=self.block_size,
-            channels=1,
-            dtype="float32",
-            device=self.device,
-        ) as stream:
-            while True:
-                data, overflowed = stream.read(self.block_size)
-                mono = data.reshape(-1)
-                yield AudioFrame(
-                    samples=mono,
-                    sample_rate=self.sample_rate,
-                    timestamp=time.time(),
-                    overflowed=bool(overflowed),
-                )
+        errors: list[str] = []
+
+        for sample_rate, channels in self._stream_options(sd):
+            block_size = max(1, int(sample_rate * self.block_ms / 1000))
+            try:
+                with sd.InputStream(
+                    samplerate=sample_rate,
+                    blocksize=block_size,
+                    channels=channels,
+                    dtype="float32",
+                    device=self.device,
+                ) as stream:
+                    while True:
+                        data, overflowed = stream.read(block_size)
+                        yield AudioFrame(
+                            samples=_downmix_mono(data),
+                            sample_rate=sample_rate,
+                            timestamp=time.time(),
+                            overflowed=bool(overflowed),
+                            channels=channels,
+                        )
+            except Exception as exc:
+                errors.append(f"{channels} channel(s) at {sample_rate} Hz: {exc}")
+                continue
+
+        detail = "; ".join(errors) if errors else "no stream options were available"
+        raise RuntimeError(f"could not open microphone input. Tried {detail}")
+
+    def _stream_options(self, sd) -> list[tuple[int, int]]:
+        info = _query_input_device(sd, self.device)
+        max_channels = int(info.get("max_input_channels", 0) or 0)
+        default_sample_rate = int(float(info.get("default_samplerate", 0) or 0))
+
+        channel_options: list[int]
+        if self.channels is not None:
+            channel_options = [self.channels]
+        else:
+            channel_options = [1]
+            if max_channels >= 2:
+                channel_options.append(2)
+            if max_channels > 2:
+                channel_options.append(max_channels)
+
+        sample_rates = [self.sample_rate]
+        if default_sample_rate and default_sample_rate not in sample_rates:
+            sample_rates.append(default_sample_rate)
+
+        return [
+            (sample_rate, channels)
+            for sample_rate in sample_rates
+            for channels in dict.fromkeys(channel_options)
+        ]
+
+
+def _query_input_device(sd, device: int | str | None) -> dict[str, object]:
+    try:
+        return dict(sd.query_devices(device, "input"))
+    except Exception:
+        if device is None:
+            raise
+        devices = list_input_devices()
+        available = ", ".join(str(device_info["index"]) for device_info in devices)
+        raise ValueError(f"input device {device!r} was not found. Available input devices: {available}")
+
+
+def _downmix_mono(data) -> Sequence[float]:
+    if hasattr(data, "ndim") and hasattr(data, "shape"):
+        if data.ndim == 2:
+            if data.shape[1] == 1:
+                return data[:, 0]
+            return data.mean(axis=1)
+        return data.reshape(-1)
+
+    rows = list(data)
+    if rows and isinstance(rows[0], (list, tuple)):
+        return [sum(float(value) for value in row) / len(row) for row in rows if row]
+    return [float(value) for value in rows]
 
 
 def simulated_frames(

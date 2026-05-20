@@ -18,7 +18,7 @@ The long-term direction is a Windows-first real-time event engine with optional 
 ```bash
 python -m pip install -r requirements.txt
 python main.py --list-devices
-python main.py --calibrate --duration 6 --device 9
+python main.py --calibrate --duration 6 --device 15
 python main.py --mode pain
 python main.py --simulate --duration 3 --no-playback
 python main.py --stdio

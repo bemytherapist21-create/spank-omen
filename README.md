@@ -83,7 +83,7 @@ python main.py --list-devices
 Calibrate your microphone:
 
 ```powershell
-python main.py --calibrate --duration 6 --device 9
+python main.py --calibrate --duration 6 --device 15
 ```
 
 Run the mic detector:
@@ -95,7 +95,7 @@ python main.py --mode pain
 If you used a custom venv path:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1 -VenvPath D:\spank-omen-venv -Device 9 -Mode pain
+powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1 -VenvPath D:\spank-omen-venv -Device 15 -Mode pain
 ```
 
 Useful Windows examples:
@@ -121,6 +121,14 @@ python main.py --custom C:\path\to\mp3s
 # Tune manually
 python main.py --min-amplitude 0.25 --min-rms 0.02 --cooldown 500
 ```
+
+If a device rejects mono input with `Invalid number of channels`, either omit `--device`, choose the current index from `--list-devices`, or force stereo capture/downmixing:
+
+```powershell
+python main.py --device 15 --channels 2 --mode pain
+```
+
+Windows can renumber audio devices when Bluetooth headsets or drivers change, so run `python main.py --list-devices` again if a previously working index fails.
 
 If the detector is too sensitive, raise `--min-amplitude` or `--min-rms`. If it misses real hits, lower them gradually.
 

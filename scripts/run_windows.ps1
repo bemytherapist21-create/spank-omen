@@ -11,6 +11,7 @@ param(
     [double]$MinAmplitude = 0,
     [double]$MinRms = 0,
     [int]$Cooldown = 0,
+    [int]$Channels = 0,
     [string]$VenvPath = ".venv"
 )
 
@@ -31,6 +32,9 @@ if (!$ListDevices -and !$Calibrate) {
 
 if ($Device -ne "") {
     $argsList += @("--device", $Device)
+}
+if ($Channels -gt 0) {
+    $argsList += @("--channels", $Channels.ToString())
 }
 if ($ListDevices) {
     $argsList += "--list-devices"
