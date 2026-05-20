@@ -68,7 +68,7 @@ def main() -> int:
     if args.list_devices:
         for device in list_input_devices():
             print(
-                f"{device['index']}: {device['name']} "
+                f"{device['index']}: [{device['hostapi']}] {device['name']} "
                 f"({device['channels']} channels, {device['default_sample_rate']} Hz)"
             )
         return 0
@@ -202,13 +202,15 @@ def calibration_frame_source(args: argparse.Namespace, duration: float) -> Itera
         return simulated_frames(args.sample_rate, args.block_ms, duration=duration)
 
     def limited() -> Iterable[AudioFrame]:
-        deadline = time.monotonic() + duration
+        deadline = None
         for frame in MicInput(
             args.sample_rate,
             args.block_ms,
             selected_device(args.device),
             channels=args.channels,
         ).frames():
+            if deadline is None:
+                deadline = time.monotonic() + duration
             if time.monotonic() >= deadline:
                 break
             yield frame

@@ -86,7 +86,7 @@ Calibrate your microphone:
 python main.py --calibrate --duration 6 --device 15
 ```
 
-Run the mic detector:
+Run the mic detector. Omitting `--device` lets spank-omen auto-pick the first working microphone:
 
 ```powershell
 python main.py --mode pain
@@ -95,7 +95,7 @@ python main.py --mode pain
 If you used a custom venv path:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1 -VenvPath D:\spank-omen-venv -Device 15 -Mode pain
+powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1 -VenvPath D:\spank-omen-venv -Mode pain
 ```
 
 Useful Windows examples:
@@ -120,6 +120,12 @@ python main.py --custom C:\path\to\mp3s
 
 # Tune manually
 python main.py --min-amplitude 0.25 --min-rms 0.02 --cooldown 500
+```
+
+If Windows keeps renumbering devices, use a stable name instead of an index:
+
+```powershell
+python main.py --device "Microphone Array" --mode pain
 ```
 
 If a device rejects mono input with `Invalid number of channels`, either omit `--device`, choose the current index from `--list-devices`, or force stereo capture/downmixing:

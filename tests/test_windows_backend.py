@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from detector.calibration import calibrate
-from detector.mic_input import _downmix_mono, simulated_frames
+from detector.mic_input import _downmix_mono, _preferred_devices, simulated_frames
 from detector.slap_detector import SlapDetector
 from main import selected_device
 from modes import create_mode
@@ -63,6 +63,33 @@ class WindowsBackendTests(unittest.TestCase):
 
     def test_downmix_mono_averages_multichannel_rows(self) -> None:
         self.assertEqual(_downmix_mono([[1.0, -1.0], [0.25, 0.75]]), [0.0, 0.5])
+
+    def test_preferred_devices_avoids_wdmks_outputs(self) -> None:
+        devices = [
+            {
+                "index": 14,
+                "name": "Headset (HD 350BT)",
+                "channels": 1,
+                "default_sample_rate": 16000,
+                "hostapi": "Windows WASAPI",
+            },
+            {
+                "index": 18,
+                "name": "PC Speaker (Realtek HD Audio output with HAP)",
+                "channels": 2,
+                "default_sample_rate": 48000,
+                "hostapi": "Windows WDM-KS",
+            },
+            {
+                "index": 15,
+                "name": "Microphone Array (AMD Audio Device)",
+                "channels": 2,
+                "default_sample_rate": 48000,
+                "hostapi": "Windows WASAPI",
+            },
+        ]
+
+        self.assertEqual(_preferred_devices(devices)[0]["index"], 15)
 
 
 if __name__ == "__main__":

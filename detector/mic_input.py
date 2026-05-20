@@ -35,18 +35,7 @@ def _require_sounddevice():
 
 def list_input_devices() -> list[dict[str, object]]:
     sd = _require_sounddevice()
-    devices = []
-    for index, device in enumerate(sd.query_devices()):
-        if int(device.get("max_input_channels", 0)) > 0:
-            devices.append(
-                {
-                    "index": index,
-                    "name": device.get("name", "unknown"),
-                    "channels": device.get("max_input_channels", 0),
-                    "default_sample_rate": device.get("default_samplerate", 0),
-                }
-            )
-    return devices
+    return _input_devices(sd)
 
 
 class MicInput:
@@ -70,7 +59,7 @@ class MicInput:
         sd = _require_sounddevice()
         errors: list[str] = []
 
-        for sample_rate, channels in self._stream_options(sd):
+        for device_index, sample_rate, channels in self._stream_options(sd):
             block_size = max(1, int(sample_rate * self.block_ms / 1000))
             try:
                 with sd.InputStream(
@@ -78,7 +67,7 @@ class MicInput:
                     blocksize=block_size,
                     channels=channels,
                     dtype="float32",
-                    device=self.device,
+                    device=device_index,
                 ) as stream:
                     while True:
                         data, overflowed = stream.read(block_size)
@@ -90,47 +79,138 @@ class MicInput:
                             channels=channels,
                         )
             except Exception as exc:
-                errors.append(f"{channels} channel(s) at {sample_rate} Hz: {exc}")
+                errors.append(
+                    f"device {device_index}, {channels} channel(s) at {sample_rate} Hz: {exc}"
+                )
                 continue
 
         detail = "; ".join(errors) if errors else "no stream options were available"
         raise RuntimeError(f"could not open microphone input. Tried {detail}")
 
-    def _stream_options(self, sd) -> list[tuple[int, int]]:
-        info = _query_input_device(sd, self.device)
-        max_channels = int(info.get("max_input_channels", 0) or 0)
-        default_sample_rate = int(float(info.get("default_samplerate", 0) or 0))
+    def _stream_options(self, sd) -> list[tuple[int, int, int]]:
+        options: list[tuple[int, int, int]] = []
+        for info in _resolve_input_devices(sd, self.device):
+            device_index = int(info["index"])
+            max_channels = int(info.get("channels", 0) or 0)
+            default_sample_rate = int(float(info.get("default_sample_rate", 0) or 0))
 
-        channel_options: list[int]
-        if self.channels is not None:
-            channel_options = [self.channels]
-        else:
-            channel_options = [1]
-            if max_channels >= 2:
-                channel_options.append(2)
-            if max_channels > 2:
-                channel_options.append(max_channels)
+            channel_options: list[int]
+            if self.channels is not None:
+                channel_options = [self.channels]
+            else:
+                channel_options = [1]
+                if max_channels >= 2:
+                    channel_options.append(2)
+                if max_channels > 2:
+                    channel_options.append(max_channels)
 
-        sample_rates = [self.sample_rate]
-        if default_sample_rate and default_sample_rate not in sample_rates:
-            sample_rates.append(default_sample_rate)
+            sample_rates = [self.sample_rate]
+            if default_sample_rate and default_sample_rate not in sample_rates:
+                sample_rates.append(default_sample_rate)
 
-        return [
-            (sample_rate, channels)
-            for sample_rate in sample_rates
-            for channels in dict.fromkeys(channel_options)
-        ]
+            options.extend(
+                (device_index, sample_rate, channels)
+                for sample_rate in sample_rates
+                for channels in dict.fromkeys(channel_options)
+            )
+        return options
 
 
-def _query_input_device(sd, device: int | str | None) -> dict[str, object]:
-    try:
-        return dict(sd.query_devices(device, "input"))
-    except Exception:
-        if device is None:
-            raise
-        devices = list_input_devices()
-        available = ", ".join(str(device_info["index"]) for device_info in devices)
-        raise ValueError(f"input device {device!r} was not found. Available input devices: {available}")
+def _input_devices(sd) -> list[dict[str, object]]:
+    host_apis = sd.query_hostapis()
+    devices: list[dict[str, object]] = []
+    for index, device in enumerate(sd.query_devices()):
+        if int(device.get("max_input_channels", 0)) <= 0:
+            continue
+        host_api_name = host_apis[int(device["hostapi"])]["name"]
+        devices.append(
+            {
+                "index": index,
+                "name": device.get("name", "unknown"),
+                "channels": device.get("max_input_channels", 0),
+                "default_sample_rate": device.get("default_samplerate", 0),
+                "hostapi": host_api_name,
+            }
+        )
+    return devices
+
+
+def _resolve_input_devices(sd, device: int | str | None) -> list[dict[str, object]]:
+    devices = _input_devices(sd)
+    if not devices:
+        raise ValueError("no input devices found")
+
+    if device is None:
+        return _preferred_devices(devices)
+
+    if isinstance(device, int):
+        matches = [info for info in devices if int(info["index"]) == device]
+        if matches:
+            return matches
+        available = ", ".join(_device_label(info) for info in _preferred_devices(devices))
+        raise ValueError(
+            f"input device index {device} was not found. Available input devices: {available}. "
+            "Windows can renumber devices; omit -Device for auto-pick or use a name like "
+            "'Microphone Array'."
+        )
+
+    needle = device.lower().strip()
+    matches = [
+        info
+        for info in devices
+        if needle in str(info["name"]).lower() or needle in str(info["hostapi"]).lower()
+    ]
+    if matches:
+        return _preferred_devices(matches)
+
+    available = ", ".join(_device_label(info) for info in _preferred_devices(devices))
+    raise ValueError(f"input device {device!r} was not found. Available input devices: {available}")
+
+
+def _preferred_devices(devices: list[dict[str, object]]) -> list[dict[str, object]]:
+    sorted_devices = sorted(devices, key=_device_rank)
+    likely_inputs = [info for info in sorted_devices if _is_likely_mic(info)]
+    return likely_inputs or sorted_devices
+
+
+def _device_rank(info: dict[str, object]) -> tuple[int, int, int, str]:
+    host_api = str(info["hostapi"])
+    name = str(info["name"]).lower()
+    host_rank = {
+        "Windows WASAPI": 0,
+        "Windows DirectSound": 1,
+        "MME": 2,
+        "Core Audio": 0,
+        "ALSA": 1,
+        "Windows WDM-KS": 9,
+    }.get(host_api, 5)
+    kind_rank = _input_kind_rank(info)
+    default_rank = 0 if "default" in name or "primary" in name else 1
+    return (kind_rank, host_rank, default_rank, name)
+
+
+def _is_likely_mic(info: dict[str, object]) -> bool:
+    name = str(info["name"]).lower()
+    if any(term in name for term in ("speaker", "output", "stereo mix")):
+        return False
+    return True
+
+
+def _input_kind_rank(info: dict[str, object]) -> int:
+    name = str(info["name"]).lower()
+    if "microphone" in name or "mic" in name:
+        return 0
+    if "primary sound capture" in name or "sound mapper" in name:
+        return 1
+    if "headset" in name:
+        return 2
+    if "input" in name:
+        return 3
+    return 4
+
+
+def _device_label(info: dict[str, object]) -> str:
+    return f"{info['index']}:{info['name']} ({info['hostapi']})"
 
 
 def _downmix_mono(data) -> Sequence[float]:
