@@ -16,4 +16,10 @@ Quick Windows test:
 python main.py --simulate --duration 3 --no-playback
 ```
 
+Calibration:
+
+```powershell
+python main.py --calibrate --duration 6 --device 9
+```
+
 For full setup, usage, roadmap, and attribution, see [README.md](./README.md).

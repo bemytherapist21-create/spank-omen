@@ -43,3 +43,6 @@ jobs:
 
       - name: Run simulated detector
         run: python main.py --simulate --duration 1.5 --no-playback --stdio
+
+      - name: Run simulated calibration
+        run: python main.py --simulate --calibrate --duration 1.5 --stdio

@@ -4,8 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from detector.calibration import calibrate
 from detector.mic_input import simulated_frames
 from detector.slap_detector import SlapDetector
+from main import selected_device
 from modes import create_mode
 from utils.cooldown import Cooldown
 from utils.player import _volume_from_amplitude
@@ -45,6 +47,19 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertGreaterEqual(_volume_from_amplitude(0.0), 0.0)
         self.assertLessEqual(_volume_from_amplitude(10.0), 1.0)
         self.assertLess(_volume_from_amplitude(0.1), _volume_from_amplitude(0.8))
+
+    def test_calibration_recommends_thresholds(self) -> None:
+        result = calibrate(simulated_frames(duration=2.0))
+
+        self.assertGreater(result.frames, 0)
+        self.assertGreater(result.recommended_min_amplitude, 0)
+        self.assertGreater(result.recommended_min_rms, 0)
+        self.assertIn("--min-amplitude", result.command)
+
+    def test_selected_device_parses_integer_indices(self) -> None:
+        self.assertEqual(selected_device("9"), 9)
+        self.assertEqual(selected_device("Microphone Array"), "Microphone Array")
+        self.assertIsNone(selected_device(None))
 
 
 if __name__ == "__main__":

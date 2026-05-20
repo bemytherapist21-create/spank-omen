@@ -22,6 +22,14 @@ class SlapEvent:
     source: str = "microphone"
 
 
+@dataclass(frozen=True)
+class AudioFeatures:
+    peak: float
+    rms: float
+    crest_factor: float
+    zero_crossing_rate: float
+
+
 class SlapDetector:
     """Detects short, high-energy transients while adapting to room noise."""
 
@@ -43,44 +51,37 @@ class SlapDetector:
         self.noise_floor = min_rms
 
     def process(self, frame: AudioFrame) -> SlapEvent | None:
-        samples = _flatten(frame.samples)
-        if not samples:
+        features = analyze_frame(frame.samples)
+        if features is None:
             return None
-
-        mean = sum(samples) / len(samples)
-        centered = [sample - mean for sample in samples]
-        peak = max(abs(sample) for sample in centered)
-        rms = math.sqrt(sum(sample * sample for sample in centered) / len(centered))
-        crest = peak / max(rms, 1e-9)
-        zcr = _zero_crossing_rate(centered)
 
         dynamic_floor = max(self.min_rms, self.noise_floor * self.noise_ratio)
         is_impact = (
-            peak >= self.min_amplitude
-            and rms >= dynamic_floor
-            and crest >= self.min_crest_factor
-            and zcr <= self.max_zero_crossing_rate
+            features.peak >= self.min_amplitude
+            and features.rms >= dynamic_floor
+            and features.crest_factor >= self.min_crest_factor
+            and features.zero_crossing_rate <= self.max_zero_crossing_rate
         )
 
         if not is_impact:
-            self._update_noise_floor(rms)
+            self._update_noise_floor(features.rms)
             return None
 
         confidence = _clamp(
-            0.45 * (peak / max(self.min_amplitude, 1e-9))
-            + 0.35 * (rms / max(dynamic_floor, 1e-9))
-            + 0.20 * (crest / max(self.min_crest_factor, 1e-9)),
+            0.45 * (features.peak / max(self.min_amplitude, 1e-9))
+            + 0.35 * (features.rms / max(dynamic_floor, 1e-9))
+            + 0.20 * (features.crest_factor / max(self.min_crest_factor, 1e-9)),
             0.0,
             1.0,
         )
         return SlapEvent(
             timestamp=frame.timestamp,
-            amplitude=peak,
-            rms=rms,
+            amplitude=features.peak,
+            rms=features.rms,
             noise_floor=self.noise_floor,
-            crest_factor=crest,
-            zero_crossing_rate=zcr,
-            severity=_severity(peak),
+            crest_factor=features.crest_factor,
+            zero_crossing_rate=features.zero_crossing_rate,
+            severity=_severity(features.peak),
             confidence=confidence,
         )
 
@@ -89,6 +90,23 @@ class SlapDetector:
             (1.0 - self.noise_alpha) * self.noise_floor
             + self.noise_alpha * max(rms, 1e-9)
         )
+
+
+def analyze_frame(samples: Sequence[float]) -> AudioFeatures | None:
+    flattened = _flatten(samples)
+    if not flattened:
+        return None
+
+    mean = sum(flattened) / len(flattened)
+    centered = [sample - mean for sample in flattened]
+    peak = max(abs(sample) for sample in centered)
+    rms = math.sqrt(sum(sample * sample for sample in centered) / len(centered))
+    return AudioFeatures(
+        peak=peak,
+        rms=rms,
+        crest_factor=peak / max(rms, 1e-9),
+        zero_crossing_rate=_zero_crossing_rate(centered),
+    )
 
 
 def _flatten(samples: Sequence[float]) -> list[float]:

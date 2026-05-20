@@ -11,7 +11,7 @@ Current state: the repo has two runtimes:
 - A Go/macOS runtime based on Apple Silicon accelerometer events.
 - A Python/Windows runtime based on microphone impact detection.
 
-The Windows backend now covers mic input, audio processing, slap classification, cooldown, mode handling, MP3 playback, JSON control, and a placeholder hook for future PyTorch classification.
+The Windows backend covers mic input, audio processing, slap classification, cooldown, mode handling, MP3 playback, JSON control, calibration, and a placeholder hook for future PyTorch classification.
 
 ## Status
 
@@ -62,16 +62,40 @@ Install Python dependencies:
 python -m pip install -r requirements.txt
 ```
 
+Or use the helper script:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1
+```
+
+Because some Windows machines have a crowded `C:` drive, the helper also supports an absolute venv path:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1 -VenvPath D:\spank-omen-venv
+```
+
 List microphones:
 
 ```powershell
 python main.py --list-devices
 ```
 
+Calibrate your microphone:
+
+```powershell
+python main.py --calibrate --duration 6 --device 9
+```
+
 Run the mic detector:
 
 ```powershell
 python main.py --mode pain
+```
+
+If you used a custom venv path:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1 -VenvPath D:\spank-omen-venv -Device 9 -Mode pain
 ```
 
 Useful Windows examples:
@@ -94,7 +118,7 @@ python main.py --mode lizard
 # Custom MP3 directory
 python main.py --custom C:\path\to\mp3s
 
-# Tune for your microphone
+# Tune manually
 python main.py --min-amplitude 0.25 --min-rms 0.02 --cooldown 500
 ```
 
@@ -106,48 +130,22 @@ If the detector is too sensitive, raise `--min-amplitude` or `--min-rms`. If it 
 go build -o spank-omen .
 ```
 
-## Usage
+## macOS Usage
 
 Current macOS accelerometer runtime:
 
 ```bash
-# Normal mode: random pain/protest audio
 sudo ./spank-omen
-
-# Sexy mode: escalating responses based on slap frequency
 sudo ./spank-omen --sexy
-
-# Halo mode: random Halo death sounds
 sudo ./spank-omen --halo
-
-# Lizard mode: escalating lizard audio pack
 sudo ./spank-omen --lizard
-
-# Fast mode: faster polling and shorter cooldown
 sudo ./spank-omen --fast
-sudo ./spank-omen --sexy --fast
-
-# Custom mode: play your own MP3 files from a directory
 sudo ./spank-omen --custom /path/to/mp3s
-
-# Custom files: play from an explicit MP3 list
 sudo ./spank-omen --custom-files a.mp3,b.mp3,c.mp3
-
-# Adjust sensitivity with amplitude threshold
 sudo ./spank-omen --min-amplitude 0.1
-sudo ./spank-omen --min-amplitude 0.25
-
-# Set cooldown in milliseconds
 sudo ./spank-omen --cooldown 600
-
-# Set playback speed multiplier
 sudo ./spank-omen --speed 0.7
-sudo ./spank-omen --speed 1.5
-
-# Scale playback volume by impact strength
 sudo ./spank-omen --volume-scaling
-
-# JSON event/control mode for GUI or automation wrappers
 sudo ./spank-omen --stdio
 ```
 
@@ -155,15 +153,13 @@ sudo ./spank-omen --stdio
 
 **Pain mode** is the default mode and randomly plays from embedded pain/protest audio clips.
 
-**Sexy mode** (`--sexy`) tracks impacts with a rolling score. More frequent hits select more intense audio clips.
+**Sexy mode** tracks impacts with a rolling score. More frequent hits select more intense audio clips.
 
-**Halo mode** (`--halo`) randomly plays Halo death sound effects.
+**Halo mode** randomly plays Halo death sound effects.
 
-**Lizard mode** (`--lizard`) uses the escalation behavior with the embedded lizard audio pack.
+**Lizard mode** uses escalation behavior with the embedded lizard audio pack.
 
-**Custom mode** (`--custom` or `--custom-files`) randomly plays MP3 files you provide.
-
-Only one mode can be selected at a time.
+**Custom mode** randomly plays MP3 files you provide.
 
 ## Live JSON Control
 
@@ -179,15 +175,9 @@ Commands:
 {"cmd":"status"}
 ```
 
-Example event:
-
-```json
-{"timestamp":"2026-05-16T22:00:00.0000000+05:30","slapNumber":1,"amplitude":0.23,"severity":"medium","file":"audio/pain/01.mp3"}
-```
-
 ## Detection Tuning
 
-For the Windows mic backend, use `--min-amplitude`, `--min-rms`, `--noise-ratio`, `--min-crest-factor`, and `--cooldown`.
+For the Windows mic backend, use `--calibrate` first, then adjust `--min-amplitude`, `--min-rms`, `--noise-ratio`, `--min-crest-factor`, and `--cooldown`.
 
 For the Go/macOS accelerometer backend, use `--min-amplitude` to control the impact threshold:
 
@@ -195,14 +185,6 @@ For the Go/macOS accelerometer backend, use `--min-amplitude` to control the imp
 - Higher values require stronger hits.
 - The Go default is `0.05`.
 - The Python mic default is `0.32`.
-
-Use `--fast` for lower-latency detection:
-
-- Poll interval: `4ms` instead of `10ms`.
-- Cooldown: `350ms` instead of `750ms`.
-- Max processed sample batch: `320` instead of `200`.
-
-Individual values can still be overridden with `--min-amplitude` and `--cooldown`.
 
 ## How It Works Today
 
@@ -226,19 +208,14 @@ macOS Go runtime:
 
 ## Windows Architecture
 
-Suggested Python prototype structure:
-
 ```text
 spank-omen/
 |-- main.py
 |-- detector/
 |   |-- mic_input.py
 |   |-- slap_detector.py
+|   |-- calibration.py
 |   `-- ai_classifier.py
-|-- audio/
-|   |-- sexy/
-|   |-- halo/
-|   `-- custom/
 |-- modes/
 |   |-- sexy_mode.py
 |   |-- halo_mode.py
@@ -264,15 +241,6 @@ Recommended stack:
 | Config | JSON |
 | Optional GUI | PyQt6 |
 | GPU acceleration | CUDA |
-
-## Release
-
-This fork includes a GoReleaser config for the current macOS build. Before publishing releases:
-
-1. Create a GitHub repository under your own account.
-2. Update `go.mod` if the module path should match that repository.
-3. Push a `v*` tag to run the release workflow.
-4. Update the release matrix once the native Windows microphone runtime exists.
 
 ## Credits
 

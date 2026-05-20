@@ -4,10 +4,13 @@ import argparse
 import json
 import sys
 import time
+from collections.abc import Iterable
 from pathlib import Path
 
 from detector.ai_classifier import AIClassifier
+from detector.calibration import CalibrationResult, calibrate
 from detector.mic_input import MicInput, list_input_devices, simulated_frames
+from detector.mic_input import AudioFrame
 from detector.slap_detector import SlapDetector
 from modes import create_mode
 from utils.cooldown import Cooldown
@@ -50,6 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--volume-scaling", action="store_true")
     parser.add_argument("--stdio", action="store_true", help="Emit JSON events and read JSON stdin commands")
     parser.add_argument("--simulate", action="store_true", help="Use generated slap events instead of microphone input")
+    parser.add_argument("--calibrate", action="store_true", help="Measure input and recommend detection thresholds")
     parser.add_argument("--duration", type=float, help="Stop after N seconds")
     parser.add_argument("--no-playback", action="store_true", help="Detect and log events without playing audio")
     parser.add_argument("--ai-classifier", action="store_true", help="Enable optional PyTorch classifier hook")
@@ -73,6 +77,13 @@ def main() -> int:
     if args.fast:
         args.block_ms = min(args.block_ms, 10)
         args.cooldown = min(args.cooldown, 350)
+
+    if args.calibrate:
+        duration = args.duration or 5.0
+        frames = calibration_frame_source(args, duration)
+        result = calibrate(frames)
+        print_calibration(result, json_mode=args.stdio)
+        return 0
 
     logger = EventLogger(json_mode=args.stdio)
     control = RuntimeControl(
@@ -100,11 +111,7 @@ def main() -> int:
         speed=args.speed,
     )
 
-    frames = (
-        simulated_frames(args.sample_rate, args.block_ms, duration=args.duration or 3.0)
-        if args.simulate
-        else MicInput(args.sample_rate, args.block_ms, selected_device(args.device)).frames()
-    )
+    frames = frame_source(args, args.duration or 3.0)
     deadline = time.monotonic() + args.duration if args.duration else None
     slap_count = 0
     logger.ready()
@@ -176,6 +183,40 @@ def selected_device(value: str | None) -> int | str | None:
         return int(value)
     except ValueError:
         return value
+
+
+def frame_source(args: argparse.Namespace, duration: float) -> Iterable[AudioFrame]:
+    if args.simulate:
+        return simulated_frames(args.sample_rate, args.block_ms, duration=duration)
+    return MicInput(args.sample_rate, args.block_ms, selected_device(args.device)).frames()
+
+
+def calibration_frame_source(args: argparse.Namespace, duration: float) -> Iterable[AudioFrame]:
+    if args.simulate:
+        return simulated_frames(args.sample_rate, args.block_ms, duration=duration)
+
+    def limited() -> Iterable[AudioFrame]:
+        deadline = time.monotonic() + duration
+        for frame in MicInput(args.sample_rate, args.block_ms, selected_device(args.device)).frames():
+            if time.monotonic() >= deadline:
+                break
+            yield frame
+
+    return limited()
+
+
+def print_calibration(result: CalibrationResult, json_mode: bool = False) -> None:
+    if json_mode:
+        print(result.to_json(), flush=True)
+        return
+
+    print("Calibration complete.")
+    print(f"Frames analyzed: {result.frames}")
+    print(f"Peak floor / p95 / max: {result.peak_floor:.4f} / {result.peak_p95:.4f} / {result.peak_max:.4f}")
+    print(f"RMS floor / p95 / max:  {result.rms_floor:.4f} / {result.rms_p95:.4f} / {result.rms_max:.4f}")
+    print("")
+    print("Try:")
+    print(result.command)
 
 
 if __name__ == "__main__":

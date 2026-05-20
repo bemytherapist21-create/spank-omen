@@ -1,0 +1,72 @@
+param(
+    [string]$Mode = "pain",
+    [string]$Device = "",
+    [switch]$NoPlayback,
+    [switch]$Fast,
+    [switch]$Stdio,
+    [switch]$Simulate,
+    [switch]$Calibrate,
+    [switch]$ListDevices,
+    [double]$Duration = 0,
+    [double]$MinAmplitude = 0,
+    [double]$MinRms = 0,
+    [int]$Cooldown = 0,
+    [string]$VenvPath = ".venv"
+)
+
+$ErrorActionPreference = "Stop"
+$repo = Split-Path -Parent $PSScriptRoot
+$venv = if ([System.IO.Path]::IsPathRooted($VenvPath)) { $VenvPath } else { Join-Path $repo $VenvPath }
+$python = Join-Path $venv "Scripts\python.exe"
+
+if (!(Test-Path $python)) {
+    throw "Virtual environment not found. Run scripts\setup_windows.ps1 first."
+}
+
+$argsList = @("main.py")
+
+if (!$ListDevices -and !$Calibrate) {
+    $argsList += @("--mode", $Mode)
+}
+
+if ($Device -ne "") {
+    $argsList += @("--device", $Device)
+}
+if ($ListDevices) {
+    $argsList += "--list-devices"
+}
+if ($NoPlayback) {
+    $argsList += "--no-playback"
+}
+if ($Fast) {
+    $argsList += "--fast"
+}
+if ($Stdio) {
+    $argsList += "--stdio"
+}
+if ($Simulate) {
+    $argsList += "--simulate"
+}
+if ($Calibrate) {
+    $argsList += "--calibrate"
+}
+if ($Duration -gt 0) {
+    $argsList += @("--duration", $Duration.ToString())
+}
+if ($MinAmplitude -gt 0) {
+    $argsList += @("--min-amplitude", $MinAmplitude.ToString())
+}
+if ($MinRms -gt 0) {
+    $argsList += @("--min-rms", $MinRms.ToString())
+}
+if ($Cooldown -gt 0) {
+    $argsList += @("--cooldown", $Cooldown.ToString())
+}
+
+Push-Location $repo
+try {
+    & $python @argsList
+}
+finally {
+    Pop-Location
+}
