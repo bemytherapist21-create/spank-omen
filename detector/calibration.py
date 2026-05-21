@@ -51,8 +51,16 @@ def calibrate(frames: Iterable[AudioFrame]) -> CalibrationResult:
 
     # If the user slaps/taps during calibration, max captures that transient.
     # If they only record room tone, p95 keeps the recommendation conservative.
-    recommended_min_amplitude = clamp(max(peak_p95 * 2.5, peak_max * 0.45, 0.08), 0.05, 0.95)
-    recommended_min_rms = clamp(max(rms_p95 * 2.0, rms_max * 0.35, 0.008), 0.005, 0.30)
+    recommended_min_amplitude = clamp(
+        max(peak_p95 * 2.5, peak_max * 0.45, 0.003),
+        0.002,
+        0.95,
+    )
+    recommended_min_rms = clamp(
+        max(rms_p95 * 2.0, rms_max * 0.35, 0.001),
+        0.0008,
+        0.30,
+    )
     command = (
         "python main.py "
         f"--min-amplitude {recommended_min_amplitude:.3f} "

@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from detector.calibration import calibrate
-from detector.mic_input import _downmix_mono, _preferred_devices, simulated_frames
+from detector.mic_input import AudioFrame, _downmix_mono, _preferred_devices, simulated_frames
 from detector.slap_detector import SlapDetector
 from main import selected_device
 from modes import create_mode
@@ -55,6 +55,17 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertGreater(result.recommended_min_amplitude, 0)
         self.assertGreater(result.recommended_min_rms, 0)
         self.assertIn("--min-amplitude", result.command)
+
+    def test_calibration_handles_quiet_laptop_mics(self) -> None:
+        quiet_frames = [
+            AudioFrame(samples=[0.0, 0.0001, -0.0001, 0.008, -0.004], sample_rate=48000, timestamp=1.0),
+            AudioFrame(samples=[0.0, 0.0001, -0.0001, 0.006, -0.003], sample_rate=48000, timestamp=1.1),
+        ]
+
+        result = calibrate(quiet_frames)
+
+        self.assertLess(result.recommended_min_amplitude, 0.02)
+        self.assertLess(result.recommended_min_rms, 0.01)
 
     def test_selected_device_parses_integer_indices(self) -> None:
         self.assertEqual(selected_device("9"), 9)
