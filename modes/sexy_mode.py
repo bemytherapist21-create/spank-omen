@@ -7,12 +7,19 @@ from pathlib import Path
 
 
 class EscalationMode:
-    def __init__(self, name: str, directory: Path, half_life: float = 30.0) -> None:
+    def __init__(
+        self,
+        name: str,
+        directory: Path,
+        half_life: float = 30.0,
+        min_index: int = 0,
+    ) -> None:
         self.name = name
         self.files = sorted(directory.glob("*.mp3"))
         if not self.files:
             raise ValueError(f"no MP3 files found for {name} mode in {directory}")
         self.half_life = half_life
+        self.min_index = max(0, min(min_index, len(self.files) - 1))
         self.score = 0.0
         self.last_time: float | None = None
 
@@ -28,4 +35,5 @@ class EscalationMode:
             len(self.files) - 1,
             int((1.0 - math.exp(-(self.score - 1.0) / 4.0)) * len(self.files)),
         )
+        index = max(self.min_index, index)
         return self.files[index]

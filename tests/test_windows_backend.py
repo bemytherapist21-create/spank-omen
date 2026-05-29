@@ -43,6 +43,17 @@ class WindowsBackendTests(unittest.TestCase):
             mode = create_mode("pain", root)
             self.assertEqual(mode.choose(0.5, 1.0), audio_file)
 
+    def test_escalation_mode_can_skip_short_intro_clips(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "sexy").mkdir()
+            for index in range(3):
+                (root / "sexy" / f"{index:02d}.mp3").write_bytes(b"fake")
+
+            mode = create_mode("sexy", root, min_index=2)
+
+            self.assertEqual(mode.choose(0.5, 1.0).name, "02.mp3")
+
     def test_volume_scaling_is_bounded(self) -> None:
         self.assertGreaterEqual(_volume_from_amplitude(0.0), 0.0)
         self.assertLessEqual(_volume_from_amplitude(10.0), 1.0)
@@ -115,6 +126,11 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertTrue(args.play_test)
         self.assertEqual(args.mode, "halo")
         self.assertEqual(args.play_index, 2)
+
+    def test_parse_args_supports_min_audio_index(self) -> None:
+        args = parse_args(["--mode", "sexy", "--min-audio-index", "20"])
+
+        self.assertEqual(args.min_audio_index, 20)
 
     def test_fast_mode_uses_low_latency_settings(self) -> None:
         args = parse_args(["--fast", "--block-ms", "20", "--cooldown", "650", "--audio-buffer-ms", "12"])

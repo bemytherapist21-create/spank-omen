@@ -11,6 +11,7 @@ param(
     [switch]$ListDevices,
     [double]$Duration = 0,
     [int]$PlayIndex = 0,
+    [int]$MinAudioIndex = 0,
     [double]$MinAmplitude = 0,
     [double]$MinRms = 0,
     [int]$Cooldown = 0,
@@ -64,6 +65,9 @@ if ($Monitor) {
 }
 if ($PlayTest) {
     $argsList += @("--play-test", "--play-index", $PlayIndex.ToString())
+}
+if ($MinAudioIndex -gt 0) {
+    $argsList += @("--min-audio-index", $MinAudioIndex.ToString())
 }
 if ($Duration -gt 0) {
     $argsList += @("--duration", $Duration.ToString())

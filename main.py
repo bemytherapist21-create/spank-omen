@@ -59,6 +59,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--monitor", action="store_true", help="Print live mic levels and trigger decisions")
     parser.add_argument("--play-test", action="store_true", help="Play one file from the selected audio pack and exit")
     parser.add_argument("--play-index", type=int, default=0, help="Audio file index for --play-test")
+    parser.add_argument("--min-audio-index", type=int, default=0, help="Skip earlier pack files below this index")
     parser.add_argument("--duration", type=float, help="Stop after N seconds")
     parser.add_argument("--no-playback", action="store_true", help="Detect and log events without playing audio")
     parser.add_argument("--ai-classifier", action="store_true", help="Enable optional PyTorch classifier hook")
@@ -114,7 +115,13 @@ def main() -> int:
         max_zero_crossing_rate=args.max_zero_crossing_rate,
     )
     ai_classifier = AIClassifier(model_path=args.ai_model, enabled=args.ai_classifier)
-    mode = create_mode(mode_name, AUDIO_ROOT, custom_dir=args.custom, custom_files=custom_files)
+    mode = create_mode(
+        mode_name,
+        AUDIO_ROOT,
+        custom_dir=args.custom,
+        custom_files=custom_files,
+        min_index=args.min_audio_index,
+    )
     cooldown = Cooldown(args.cooldown)
     player = AudioPlayer(
         enabled=not args.no_playback,
@@ -250,7 +257,13 @@ def print_calibration(result: CalibrationResult, json_mode: bool = False) -> Non
 
 
 def play_test(args: argparse.Namespace, mode_name: str, custom_files: list[str] | None) -> int:
-    mode = create_mode(mode_name, AUDIO_ROOT, custom_dir=args.custom, custom_files=custom_files)
+    mode = create_mode(
+        mode_name,
+        AUDIO_ROOT,
+        custom_dir=args.custom,
+        custom_files=custom_files,
+        min_index=args.min_audio_index,
+    )
     index = max(0, min(args.play_index, len(mode.files) - 1))
     audio_file = mode.files[index]
     print(f"Playing {mode.name}[{index}]: {audio_file}")

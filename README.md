@@ -129,6 +129,9 @@ python main.py --mode sexy
 python main.py --mode halo
 python main.py --mode lizard
 
+# Start sexy/lizard escalation on later, longer clips
+python main.py --mode sexy --min-audio-index 20
+
 # Custom MP3 directory
 python main.py --custom C:\path\to\mp3s
 
