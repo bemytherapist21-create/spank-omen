@@ -110,6 +110,11 @@ Useful Windows examples:
 # Test without mic or playback
 python main.py --simulate --duration 3 --no-playback
 
+# Preview the original audio packs without mic detection
+python main.py --mode pain --play-test --play-index 0
+python main.py --mode sexy --play-test --play-index 0
+python main.py --mode halo --play-test --play-index 0
+
 # JSON events for GUI/automation wrappers
 python main.py --stdio
 

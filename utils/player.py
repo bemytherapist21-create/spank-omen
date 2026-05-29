@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
@@ -19,7 +20,7 @@ class AudioPlayer:
         self._initialized = False
         self._frequency: int | None = None
 
-    def play(self, path: Path, amplitude: float) -> None:
+    def play(self, path: Path, amplitude: float, wait: bool = False) -> None:
         if not self.enabled:
             return
         pygame = self._load_pygame()
@@ -28,12 +29,16 @@ class AudioPlayer:
         sound = pygame.mixer.Sound(str(path))
         if self.volume_scaling:
             sound.set_volume(_volume_from_amplitude(amplitude))
-        sound.play()
+        channel = sound.play()
+        if wait and channel is not None:
+            while channel.get_busy():
+                pygame.time.wait(25)
 
     def _load_pygame(self):
         if self._pygame is not None:
             return self._pygame
         try:
+            os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
             import pygame  # type: ignore
         except ImportError as exc:
             raise RuntimeError(

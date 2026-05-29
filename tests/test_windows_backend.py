@@ -109,6 +109,13 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertTrue(args.simulate)
         self.assertEqual(args.duration, 1)
 
+    def test_parse_args_supports_play_test(self) -> None:
+        args = parse_args(["--mode", "halo", "--play-test", "--play-index", "2"])
+
+        self.assertTrue(args.play_test)
+        self.assertEqual(args.mode, "halo")
+        self.assertEqual(args.play_index, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

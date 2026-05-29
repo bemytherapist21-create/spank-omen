@@ -56,6 +56,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--simulate", action="store_true", help="Use generated slap events instead of microphone input")
     parser.add_argument("--calibrate", action="store_true", help="Measure input and recommend detection thresholds")
     parser.add_argument("--monitor", action="store_true", help="Print live mic levels and trigger decisions")
+    parser.add_argument("--play-test", action="store_true", help="Play one file from the selected audio pack and exit")
+    parser.add_argument("--play-index", type=int, default=0, help="Audio file index for --play-test")
     parser.add_argument("--duration", type=float, help="Stop after N seconds")
     parser.add_argument("--no-playback", action="store_true", help="Detect and log events without playing audio")
     parser.add_argument("--ai-classifier", action="store_true", help="Enable optional PyTorch classifier hook")
@@ -90,6 +92,9 @@ def main() -> int:
     if args.monitor:
         duration = args.duration or 15.0
         return monitor_levels(args, duration)
+
+    if args.play_test:
+        return play_test(args, mode_name, custom_files)
 
     logger = EventLogger(json_mode=args.stdio)
     control = RuntimeControl(
@@ -235,6 +240,20 @@ def print_calibration(result: CalibrationResult, json_mode: bool = False) -> Non
     print("")
     print("Try:")
     print(result.command)
+
+
+def play_test(args: argparse.Namespace, mode_name: str, custom_files: list[str] | None) -> int:
+    mode = create_mode(mode_name, AUDIO_ROOT, custom_dir=args.custom, custom_files=custom_files)
+    index = max(0, min(args.play_index, len(mode.files) - 1))
+    audio_file = mode.files[index]
+    print(f"Playing {mode.name}[{index}]: {audio_file}")
+    player = AudioPlayer(
+        enabled=True,
+        volume_scaling=False,
+        speed=args.speed,
+    )
+    player.play(audio_file, amplitude=1.0, wait=True)
+    return 0
 
 
 def monitor_levels(args: argparse.Namespace, duration: float) -> int:
