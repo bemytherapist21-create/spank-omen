@@ -11,7 +11,7 @@ from detector.ai_classifier import AIClassifier
 from detector.calibration import CalibrationResult, calibrate
 from detector.mic_input import MicInput, list_input_devices, simulated_frames
 from detector.mic_input import AudioFrame
-from detector.slap_detector import SlapDetector
+from detector.slap_detector import SlapDetector, analyze_frame
 from modes import create_mode
 from utils.cooldown import Cooldown
 from utils.logger import EventLogger
@@ -24,7 +24,7 @@ SETTINGS_PATH = ROOT / "config" / "settings.json"
 AUDIO_ROOT = ROOT / "audio"
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     settings = load_settings()
     parser = argparse.ArgumentParser(
         prog="spank-omen",
@@ -55,11 +55,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stdio", action="store_true", help="Emit JSON events and read JSON stdin commands")
     parser.add_argument("--simulate", action="store_true", help="Use generated slap events instead of microphone input")
     parser.add_argument("--calibrate", action="store_true", help="Measure input and recommend detection thresholds")
+    parser.add_argument("--monitor", action="store_true", help="Print live mic levels and trigger decisions")
     parser.add_argument("--duration", type=float, help="Stop after N seconds")
     parser.add_argument("--no-playback", action="store_true", help="Detect and log events without playing audio")
     parser.add_argument("--ai-classifier", action="store_true", help="Enable optional PyTorch classifier hook")
     parser.add_argument("--ai-model", help="TorchScript model path for --ai-classifier")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def main() -> int:
@@ -85,6 +86,10 @@ def main() -> int:
         result = calibrate(frames)
         print_calibration(result, json_mode=args.stdio)
         return 0
+
+    if args.monitor:
+        duration = args.duration or 15.0
+        return monitor_levels(args, duration)
 
     logger = EventLogger(json_mode=args.stdio)
     control = RuntimeControl(
@@ -230,6 +235,59 @@ def print_calibration(result: CalibrationResult, json_mode: bool = False) -> Non
     print("")
     print("Try:")
     print(result.command)
+
+
+def monitor_levels(args: argparse.Namespace, duration: float) -> int:
+    detector = SlapDetector(
+        min_amplitude=args.min_amplitude,
+        min_rms=args.min_rms,
+        noise_ratio=args.noise_ratio,
+        min_crest_factor=args.min_crest_factor,
+        max_zero_crossing_rate=args.max_zero_crossing_rate,
+    )
+    frames = frame_source(args, duration)
+    deadline = time.monotonic() + duration if duration else None
+    last_print = 0.0
+    printed = 0
+
+    print(
+        "monitoring mic levels "
+        f"(min_amplitude={args.min_amplitude:.4f}, min_rms={args.min_rms:.4f}, "
+        f"duration={duration:.1f}s)"
+    )
+    print("Tap/slap near the mic. Look for TRIGGER.")
+
+    try:
+        for frame in frames:
+            if deadline and time.monotonic() >= deadline:
+                break
+
+            features = analyze_frame(frame.samples)
+            if features is None:
+                continue
+
+            event = detector.process(frame)
+            now = time.monotonic()
+            should_print = event is not None or (now - last_print) >= 0.25
+            if not should_print:
+                continue
+
+            status = "TRIGGER" if event is not None else "listen "
+            print(
+                f"{status} peak={features.peak:.5f} rms={features.rms:.5f} "
+                f"crest={features.crest_factor:.2f} zcr={features.zero_crossing_rate:.2f} "
+                f"noise={detector.noise_floor:.5f}",
+                flush=True,
+            )
+            last_print = now
+            printed += 1
+    except KeyboardInterrupt:
+        return 130
+
+    if printed == 0:
+        print("No audio frames were captured. Check Windows microphone privacy/input settings.")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

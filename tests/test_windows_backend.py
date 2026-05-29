@@ -7,7 +7,7 @@ from pathlib import Path
 from detector.calibration import calibrate
 from detector.mic_input import AudioFrame, _downmix_mono, _preferred_devices, simulated_frames
 from detector.slap_detector import SlapDetector
-from main import selected_device
+from main import parse_args, selected_device
 from modes import create_mode
 from utils.cooldown import Cooldown
 from utils.player import _volume_from_amplitude
@@ -101,6 +101,13 @@ class WindowsBackendTests(unittest.TestCase):
         ]
 
         self.assertEqual(_preferred_devices(devices)[0]["index"], 15)
+
+    def test_parse_args_supports_monitor(self) -> None:
+        args = parse_args(["--monitor", "--duration", "1", "--simulate"])
+
+        self.assertTrue(args.monitor)
+        self.assertTrue(args.simulate)
+        self.assertEqual(args.duration, 1)
 
 
 if __name__ == "__main__":

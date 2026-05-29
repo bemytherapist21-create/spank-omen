@@ -86,6 +86,12 @@ Calibrate your microphone:
 python main.py --calibrate --duration 6 --device 15
 ```
 
+Watch live microphone levels:
+
+```powershell
+python main.py --monitor --duration 15 --min-amplitude 0.003 --min-rms 0.001
+```
+
 Run the mic detector. Omitting `--device` lets spank-omen auto-pick the first working microphone:
 
 ```powershell

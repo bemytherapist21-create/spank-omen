@@ -6,6 +6,7 @@ param(
     [switch]$Stdio,
     [switch]$Simulate,
     [switch]$Calibrate,
+    [switch]$Monitor,
     [switch]$ListDevices,
     [double]$Duration = 0,
     [double]$MinAmplitude = 0,
@@ -53,6 +54,9 @@ if ($Simulate) {
 }
 if ($Calibrate) {
     $argsList += "--calibrate"
+}
+if ($Monitor) {
+    $argsList += "--monitor"
 }
 if ($Duration -gt 0) {
     $argsList += @("--duration", $Duration.ToString())
