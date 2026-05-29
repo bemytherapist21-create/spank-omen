@@ -120,6 +120,13 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertTrue(args.simulate)
         self.assertEqual(args.duration, 1)
 
+    def test_parse_args_supports_monitor_playback(self) -> None:
+        args = parse_args(["--monitor-playback", "--duration", "1", "--simulate"])
+
+        self.assertTrue(args.monitor_playback)
+        self.assertTrue(args.simulate)
+        self.assertEqual(args.duration, 1)
+
     def test_parse_args_supports_play_test(self) -> None:
         args = parse_args(["--mode", "halo", "--play-test", "--play-index", "2"])
 

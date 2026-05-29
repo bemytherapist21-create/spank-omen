@@ -115,6 +115,9 @@ python main.py --mode pain --play-test --play-index 0
 python main.py --mode sexy --play-test --play-index 0
 python main.py --mode halo --play-test --play-index 0
 
+# Test mic trigger and playback together
+python main.py --mode sexy --monitor-playback --duration 15 --min-audio-index 30
+
 # JSON events for GUI/automation wrappers
 python main.py --stdio
 

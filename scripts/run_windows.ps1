@@ -7,6 +7,7 @@ param(
     [switch]$Simulate,
     [switch]$Calibrate,
     [switch]$Monitor,
+    [switch]$MonitorPlayback,
     [switch]$PlayTest,
     [switch]$ListDevices,
     [double]$Duration = 0,
@@ -62,6 +63,9 @@ if ($Calibrate) {
 }
 if ($Monitor) {
     $argsList += "--monitor"
+}
+if ($MonitorPlayback) {
+    $argsList += "--monitor-playback"
 }
 if ($PlayTest) {
     $argsList += @("--play-test", "--play-index", $PlayIndex.ToString())

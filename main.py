@@ -57,6 +57,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--simulate", action="store_true", help="Use generated slap events instead of microphone input")
     parser.add_argument("--calibrate", action="store_true", help="Measure input and recommend detection thresholds")
     parser.add_argument("--monitor", action="store_true", help="Print live mic levels and trigger decisions")
+    parser.add_argument("--monitor-playback", action="store_true", help="Monitor mic levels and play audio on triggers")
     parser.add_argument("--play-test", action="store_true", help="Play one file from the selected audio pack and exit")
     parser.add_argument("--play-index", type=int, default=0, help="Audio file index for --play-test")
     parser.add_argument("--min-audio-index", type=int, default=0, help="Skip earlier pack files below this index")
@@ -90,9 +91,9 @@ def main() -> int:
         print_calibration(result, json_mode=args.stdio)
         return 0
 
-    if args.monitor:
+    if args.monitor or args.monitor_playback:
         duration = args.duration or 15.0
-        return monitor_levels(args, duration)
+        return monitor_levels(args, duration, mode_name, custom_files)
 
     if args.play_test:
         return play_test(args, mode_name, custom_files)
@@ -277,7 +278,12 @@ def play_test(args: argparse.Namespace, mode_name: str, custom_files: list[str] 
     return 0
 
 
-def monitor_levels(args: argparse.Namespace, duration: float) -> int:
+def monitor_levels(
+    args: argparse.Namespace,
+    duration: float,
+    mode_name: str | None = None,
+    custom_files: list[str] | None = None,
+) -> int:
     detector = SlapDetector(
         min_amplitude=args.min_amplitude,
         min_rms=args.min_rms,
@@ -289,6 +295,24 @@ def monitor_levels(args: argparse.Namespace, duration: float) -> int:
     deadline = time.monotonic() + duration if duration else None
     last_print = 0.0
     printed = 0
+    slap_count = 0
+    cooldown = Cooldown(args.cooldown)
+    mode = None
+    player = None
+    if args.monitor_playback:
+        mode = create_mode(
+            mode_name or selected_mode(args),
+            AUDIO_ROOT,
+            custom_dir=args.custom,
+            custom_files=custom_files,
+            min_index=args.min_audio_index,
+        )
+        player = AudioPlayer(
+            enabled=not args.no_playback,
+            volume_scaling=args.volume_scaling,
+            speed=args.speed,
+            buffer_ms=args.audio_buffer_ms,
+        )
 
     print(
         "monitoring mic levels "
@@ -313,12 +337,21 @@ def monitor_levels(args: argparse.Namespace, duration: float) -> int:
                 continue
 
             status = "TRIGGER" if event is not None else "listen "
-            print(
+            detail = (
                 f"{status} peak={features.peak:.5f} rms={features.rms:.5f} "
                 f"crest={features.crest_factor:.2f} zcr={features.zero_crossing_rate:.2f} "
-                f"noise={detector.noise_floor:.5f}",
-                flush=True,
+                f"noise={detector.noise_floor:.5f}"
             )
+            if event is not None and args.monitor_playback and mode is not None and player is not None:
+                if cooldown.ready(now):
+                    cooldown.mark(now)
+                    slap_count += 1
+                    audio_file = mode.choose(event.amplitude, frame.timestamp)
+                    detail += f" -> {audio_file}"
+                    player.play(audio_file, event.amplitude)
+                else:
+                    detail += " (cooldown)"
+            print(detail, flush=True)
             last_print = now
             printed += 1
     except KeyboardInterrupt:
