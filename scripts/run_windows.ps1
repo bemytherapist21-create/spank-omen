@@ -3,6 +3,7 @@ param(
     [string]$Device = "",
     [switch]$NoPlayback,
     [switch]$Fast,
+    [switch]$Loose,
     [switch]$Stdio,
     [switch]$Simulate,
     [switch]$Calibrate,
@@ -51,6 +52,9 @@ if ($NoPlayback) {
 }
 if ($Fast) {
     $argsList += "--fast"
+}
+if ($Loose) {
+    $argsList += "--loose"
 }
 if ($Stdio) {
     $argsList += "--stdio"

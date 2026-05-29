@@ -124,6 +124,9 @@ python main.py --stdio
 # Faster response profile
 python main.py --fast
 
+# More permissive detection for quiet headset mics
+python main.py --mode sexy --loose --monitor-playback --min-audio-index 30
+
 # Lowest practical latency on Windows
 python main.py --fast --block-ms 5 --audio-buffer-ms 8 --cooldown 250
 

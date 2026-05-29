@@ -7,7 +7,7 @@ from pathlib import Path
 from detector.calibration import calibrate
 from detector.mic_input import AudioFrame, _downmix_mono, _preferred_devices, simulated_frames
 from detector.slap_detector import SlapDetector
-from main import apply_fast_preset, parse_args, selected_device
+from main import apply_fast_preset, apply_loose_preset, parse_args, selected_device
 from modes import create_mode
 from utils.cooldown import Cooldown
 from utils.player import _next_power_of_two, _volume_from_amplitude
@@ -147,6 +147,17 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertEqual(args.block_ms, 5)
         self.assertEqual(args.cooldown, 250)
         self.assertEqual(args.audio_buffer_ms, 8)
+
+    def test_loose_mode_relaxes_headset_detection(self) -> None:
+        args = parse_args(["--loose"])
+
+        apply_loose_preset(args)
+
+        self.assertEqual(args.min_amplitude, 0.0008)
+        self.assertEqual(args.min_rms, 0.00015)
+        self.assertEqual(args.noise_ratio, 1.2)
+        self.assertEqual(args.min_crest_factor, 2.0)
+        self.assertEqual(args.max_zero_crossing_rate, 1.0)
 
     def test_next_power_of_two_for_mixer_buffer(self) -> None:
         self.assertEqual(_next_power_of_two(128), 128)

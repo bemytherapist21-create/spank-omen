@@ -50,6 +50,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-zero-crossing-rate", type=float, default=settings["max_zero_crossing_rate"])
     parser.add_argument("--cooldown", type=int, default=settings["cooldown_ms"], help="Cooldown in milliseconds")
     parser.add_argument("--fast", action="store_true", help="Lower-latency preset")
+    parser.add_argument("--loose", action="store_true", help="More permissive detection for quiet/headset mics")
     parser.add_argument("--audio-buffer-ms", type=int, default=settings["audio_buffer_ms"])
     parser.add_argument("--speed", type=float, default=1.0, help="Playback speed/pitch multiplier")
     parser.add_argument("--volume-scaling", action="store_true")
@@ -83,6 +84,8 @@ def main() -> int:
     custom_files = split_custom_files(args.custom_files)
     if args.fast:
         apply_fast_preset(args)
+    if args.loose:
+        apply_loose_preset(args)
 
     if args.calibrate:
         duration = args.duration or 5.0
@@ -200,6 +203,14 @@ def apply_fast_preset(args: argparse.Namespace) -> None:
     args.block_ms = min(args.block_ms, 5)
     args.cooldown = min(args.cooldown, 250)
     args.audio_buffer_ms = min(args.audio_buffer_ms, 8)
+
+
+def apply_loose_preset(args: argparse.Namespace) -> None:
+    args.min_amplitude = min(args.min_amplitude, 0.0008)
+    args.min_rms = min(args.min_rms, 0.00015)
+    args.noise_ratio = min(args.noise_ratio, 1.2)
+    args.min_crest_factor = min(args.min_crest_factor, 2.0)
+    args.max_zero_crossing_rate = max(args.max_zero_crossing_rate, 1.0)
 
 
 def selected_device(value: str | None) -> int | str | None:
