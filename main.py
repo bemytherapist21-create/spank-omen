@@ -50,6 +50,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-zero-crossing-rate", type=float, default=settings["max_zero_crossing_rate"])
     parser.add_argument("--cooldown", type=int, default=settings["cooldown_ms"], help="Cooldown in milliseconds")
     parser.add_argument("--fast", action="store_true", help="Lower-latency preset")
+    parser.add_argument("--audio-buffer-ms", type=int, default=settings["audio_buffer_ms"])
     parser.add_argument("--speed", type=float, default=1.0, help="Playback speed/pitch multiplier")
     parser.add_argument("--volume-scaling", action="store_true")
     parser.add_argument("--stdio", action="store_true", help="Emit JSON events and read JSON stdin commands")
@@ -79,8 +80,7 @@ def main() -> int:
     mode_name = selected_mode(args)
     custom_files = split_custom_files(args.custom_files)
     if args.fast:
-        args.block_ms = min(args.block_ms, 10)
-        args.cooldown = min(args.cooldown, 350)
+        apply_fast_preset(args)
 
     if args.calibrate:
         duration = args.duration or 5.0
@@ -120,6 +120,7 @@ def main() -> int:
         enabled=not args.no_playback,
         volume_scaling=args.volume_scaling,
         speed=args.speed,
+        buffer_ms=args.audio_buffer_ms,
     )
 
     frames = frame_source(args, args.duration or 3.0)
@@ -187,6 +188,12 @@ def split_custom_files(value: str | None) -> list[str] | None:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def apply_fast_preset(args: argparse.Namespace) -> None:
+    args.block_ms = min(args.block_ms, 5)
+    args.cooldown = min(args.cooldown, 250)
+    args.audio_buffer_ms = min(args.audio_buffer_ms, 8)
+
+
 def selected_device(value: str | None) -> int | str | None:
     if value is None:
         return None
@@ -251,6 +258,7 @@ def play_test(args: argparse.Namespace, mode_name: str, custom_files: list[str] 
         enabled=True,
         volume_scaling=False,
         speed=args.speed,
+        buffer_ms=args.audio_buffer_ms,
     )
     player.play(audio_file, amplitude=1.0, wait=True)
     return 0

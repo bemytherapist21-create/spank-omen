@@ -14,6 +14,8 @@ param(
     [double]$MinAmplitude = 0,
     [double]$MinRms = 0,
     [int]$Cooldown = 0,
+    [int]$BlockMs = 0,
+    [int]$AudioBufferMs = 0,
     [int]$Channels = 0,
     [string]$VenvPath = ".venv"
 )
@@ -74,6 +76,12 @@ if ($MinRms -gt 0) {
 }
 if ($Cooldown -gt 0) {
     $argsList += @("--cooldown", $Cooldown.ToString())
+}
+if ($BlockMs -gt 0) {
+    $argsList += @("--block-ms", $BlockMs.ToString())
+}
+if ($AudioBufferMs -gt 0) {
+    $argsList += @("--audio-buffer-ms", $AudioBufferMs.ToString())
 }
 
 Push-Location $repo

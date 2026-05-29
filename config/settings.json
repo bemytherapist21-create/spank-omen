@@ -7,5 +7,6 @@
   "min_crest_factor": 3.5,
   "max_zero_crossing_rate": 0.55,
   "cooldown_ms": 650,
+  "audio_buffer_ms": 12,
   "mode": "pain"
 }

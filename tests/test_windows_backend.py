@@ -7,10 +7,10 @@ from pathlib import Path
 from detector.calibration import calibrate
 from detector.mic_input import AudioFrame, _downmix_mono, _preferred_devices, simulated_frames
 from detector.slap_detector import SlapDetector
-from main import parse_args, selected_device
+from main import apply_fast_preset, parse_args, selected_device
 from modes import create_mode
 from utils.cooldown import Cooldown
-from utils.player import _volume_from_amplitude
+from utils.player import _next_power_of_two, _volume_from_amplitude
 
 
 class WindowsBackendTests(unittest.TestCase):
@@ -115,6 +115,19 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertTrue(args.play_test)
         self.assertEqual(args.mode, "halo")
         self.assertEqual(args.play_index, 2)
+
+    def test_fast_mode_uses_low_latency_settings(self) -> None:
+        args = parse_args(["--fast", "--block-ms", "20", "--cooldown", "650", "--audio-buffer-ms", "12"])
+
+        apply_fast_preset(args)
+
+        self.assertEqual(args.block_ms, 5)
+        self.assertEqual(args.cooldown, 250)
+        self.assertEqual(args.audio_buffer_ms, 8)
+
+    def test_next_power_of_two_for_mixer_buffer(self) -> None:
+        self.assertEqual(_next_power_of_two(128), 128)
+        self.assertEqual(_next_power_of_two(129), 256)
 
 
 if __name__ == "__main__":

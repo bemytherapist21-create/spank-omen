@@ -121,6 +121,9 @@ python main.py --stdio
 # Faster response profile
 python main.py --fast
 
+# Lowest practical latency on Windows
+python main.py --fast --block-ms 5 --audio-buffer-ms 8 --cooldown 250
+
 # Different packs
 python main.py --mode sexy
 python main.py --mode halo
