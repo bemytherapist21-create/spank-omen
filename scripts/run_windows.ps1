@@ -11,6 +11,7 @@ param(
     [switch]$MonitorPlayback,
     [switch]$PlayTest,
     [switch]$ListDevices,
+    [switch]$Interactive,
     [double]$Duration = 0,
     [int]$PlayIndex = 0,
     [int]$MinAudioIndex = 0,
@@ -30,6 +31,82 @@ $python = Join-Path $venv "Scripts\python.exe"
 
 if (!(Test-Path $python)) {
     throw "Virtual environment not found. Run scripts\setup_windows.ps1 first."
+}
+
+function Read-NumberChoice {
+    param(
+        [string]$Prompt,
+        [int]$Min,
+        [int]$Max,
+        [int]$Default
+    )
+
+    while ($true) {
+        $raw = Read-Host "$Prompt [$Default]"
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+            return $Default
+        }
+
+        $value = 0
+        if ([int]::TryParse($raw, [ref]$value) -and $value -ge $Min -and $value -le $Max) {
+            return $value
+        }
+
+        Write-Host "Please enter a number from $Min to $Max."
+    }
+}
+
+function Select-InputDevice {
+    $deviceJson = (& $python main.py --list-devices-json) -join "`n"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not list microphone devices."
+    }
+
+    $devices = @($deviceJson | ConvertFrom-Json)
+    if ($devices.Count -eq 0) {
+        throw "No microphone input devices found."
+    }
+
+    Write-Host ""
+    Write-Host "Select microphone input:"
+    Write-Host "  0) Auto-pick best microphone"
+
+    for ($i = 0; $i -lt $devices.Count; $i++) {
+        $device = $devices[$i]
+        $name = (($device.name -as [string]) -replace "[`r`n]+", " ").Trim()
+        Write-Host ("  {0}) [{1}] {2} ({3} channels, {4} Hz)" -f ($i + 1), $device.hostapi, $name, $device.channels, $device.default_sample_rate)
+    }
+
+    $choice = Read-NumberChoice -Prompt "Device number" -Min 0 -Max $devices.Count -Default 0
+    if ($choice -eq 0) {
+        return ""
+    }
+
+    return ($devices[$choice - 1].index).ToString()
+}
+
+function Select-AudioMode {
+    param([string]$DefaultMode)
+
+    $modes = @("halo", "lizard", "pain", "sexy")
+    $defaultIndex = [array]::IndexOf($modes, $DefaultMode) + 1
+    if ($defaultIndex -le 0) {
+        $defaultIndex = 1
+    }
+
+    Write-Host ""
+    Write-Host "Select audio pack:"
+    for ($i = 0; $i -lt $modes.Count; $i++) {
+        Write-Host ("  {0}) {1}" -f ($i + 1), $modes[$i])
+    }
+
+    $choice = Read-NumberChoice -Prompt "Audio pack number" -Min 1 -Max $modes.Count -Default $defaultIndex
+    return $modes[$choice - 1]
+}
+
+if ($Interactive -and !$ListDevices -and !$Calibrate) {
+    $Device = Select-InputDevice
+    $Mode = Select-AudioMode -DefaultMode $Mode
 }
 
 $argsList = @("main.py")

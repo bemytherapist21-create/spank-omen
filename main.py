@@ -41,6 +41,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--device", help="Input device index or name")
     parser.add_argument("--channels", type=int, help="Input channel count; defaults to auto fallback")
     parser.add_argument("--list-devices", action="store_true", help="List microphone input devices")
+    parser.add_argument("--list-devices-json", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--sample-rate", type=int, default=settings["sample_rate"])
     parser.add_argument("--block-ms", type=int, default=settings["block_ms"])
     parser.add_argument("--min-amplitude", type=float, default=settings["min_amplitude"])
@@ -72,8 +73,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
-    if args.list_devices:
-        for device in list_input_devices():
+    if args.list_devices or args.list_devices_json:
+        devices = list_input_devices()
+        if args.list_devices_json:
+            print(json.dumps(devices), flush=True)
+            return 0
+        for device in devices:
             print(
                 f"{device['index']}: [{device['hostapi']}] {device['name']} "
                 f"({device['channels']} channels, {device['default_sample_rate']} Hz)"

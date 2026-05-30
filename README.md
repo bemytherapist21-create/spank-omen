@@ -104,6 +104,12 @@ If you used a custom venv path:
 powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1 -VenvPath D:\spank-omen-venv -Mode pain
 ```
 
+To choose the microphone and audio pack from menus:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1 -VenvPath D:\spank-omen-venv -Interactive -Loose -Fast -MinAudioIndex 30
+```
+
 Useful Windows examples:
 
 ```powershell

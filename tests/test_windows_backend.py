@@ -120,6 +120,11 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertTrue(args.simulate)
         self.assertEqual(args.duration, 1)
 
+    def test_parse_args_supports_device_json_listing(self) -> None:
+        args = parse_args(["--list-devices-json"])
+
+        self.assertTrue(args.list_devices_json)
+
     def test_parse_args_supports_monitor_playback(self) -> None:
         args = parse_args(["--monitor-playback", "--duration", "1", "--simulate"])
 
