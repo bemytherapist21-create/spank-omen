@@ -107,8 +107,10 @@ powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1 -VenvPath D:\sp
 To choose the microphone and audio pack from menus:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1 -VenvPath D:\spank-omen-venv -Interactive -Loose -Fast -MinAudioIndex 30
+powershell -ExecutionPolicy Bypass -File scripts\start_windows.ps1
 ```
+
+You can also double-click `scripts\start_windows.cmd`.
 
 Useful Windows examples:
 
